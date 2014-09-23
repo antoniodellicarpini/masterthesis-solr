@@ -36,18 +36,17 @@ import org.apache.solr.util.plugin.SolrCoreAware;
 public class HierarchyComponent extends SearchComponent implements SolrCoreAware {
 	//hashmap dei livelli gerarchici <Gerarchia,Count>
 	//private  HashMap<String,ArrayList<String>> h = new HashMap<String, ArrayList<String>>();
-	
+	private int numHit;
+	private int numDocHit;
 	public void inform(SolrCore arg0) {
 		// TODO Auto-generated method stub
 		
 	}
-
 	@Override
 	public String getDescription() {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
 	@Override
 	public String getSource() {
 		// TODO Auto-generated method stub
@@ -59,7 +58,6 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 		// TODO Auto-generated method stub
 		
 	}
-
 	@SuppressWarnings("unchecked")
 	@Override
 	public void process(ResponseBuilder rb) throws IOException {
@@ -185,7 +183,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	     * dei cluster e la lista dei descrittori generando in output un'unica lista
 	     * contenente tutti i termini ognuno dei quali avrà associato i propri documenti.
 		*/
-	    
+	   
 	    ArrayList<Desc> out = merge (clusters,descrittori,h);
 	    
 	    //qui ci facciamo ritornare la gerarchia cliccata
@@ -306,6 +304,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	        
 	    }
 	    
+	    
 	    rb.rsp.add("clusterGerarchizzati",array);
 	    rb.rsp.add("clicked","");
 	    // la prima richiesta
@@ -314,6 +313,8 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	    else
 	    	rb.rsp.add("first", "*:*");
 	    
+	    rb.rsp.add("numHit", numHit);
+	    rb.rsp.add("numDocHit", numDocHit);
 	    }
 	}
 	
@@ -377,7 +378,8 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	
 	
 	private  ArrayList<Desc> merge (ArrayList<Cluster> clusters,ArrayList<Desc> descrittori, HashMap<String,ArrayList<String>> h ) {
-		  
+		  numHit=0;
+		  numDocHit=0;
 		  ArrayList<Desc> output = new ArrayList<Desc>();
 		  
 		  int indexC = 0;
@@ -389,8 +391,12 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 			   * se il confronto va a buon fine, cioè se la label del descrittore 
 			   * è uguale a quello del cluster.
 			   */
+			  
 			  if(clusters.get(indexC).getStemLabel().equals(descrittori.get(indexD).getName()) )
-			  {
+			  {   
+				  numHit++;
+				  numDocHit=numDocHit+clusters.get(indexC).getDocs().size();
+				  
 				  // prendo i documenti associati al cluster e li setto al descrittore.
 				  descrittori.get(indexD).setDocs(clusters.get(indexC).getDocs());
 				  // recupero inoltre la label non stemmata del cluster
@@ -401,9 +407,21 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 				  // richiamo la funzione per la costruzione del primo livello	 
 				  buildFacetLevel(descrittori.get(indexD),h);
 				  
+				  	
 				  // avanzo entrambi gli indici delle due liste
 				  indexC++;
+				  
+				  if(indexD<descrittori.size()-1)
+				  	{
+					 
+				  		if(clusters.get(indexC-1).getStemLabel().equals(descrittori.get(indexD+1).getName())){
+				  			
+				  			indexC=indexC-1;
+				  		}
+				  	}
+				  
 				  indexD++;
+			  
 			  }
 			  /* 
 			   * se il confronto non va a buon fine, cioè se la label del descrittore 
