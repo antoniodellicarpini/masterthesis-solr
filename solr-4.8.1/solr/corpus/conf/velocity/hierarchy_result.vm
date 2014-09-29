@@ -1,0 +1,35 @@
+#set($first=$response.response.first)
+## For each hierarchy
+
+#if($response.response.clicked!="")
+		 	  		<h3>$response.response.clicked</h3>
+#end
+<ol>
+#foreach ($hierarchy in $response.response.clusterGerarchizzati)
+		#set($labels = $hierarchy.get('labels'))
+		#set($docs = $hierarchy.get('idDocs'))
+		<li>
+		    #foreach ($label in $labels)
+		 	  #set($query="q=")
+		 	  #foreach ($doc in $docs)
+		 	     #if($query=="q=")
+		 	    	 #set($query=$query+"id:$doc")
+		 	   	 #else
+		 	   	 #set($query=$query+" OR id:$doc")
+		 	   	 #end
+		 	  #end
+		 	  <a id="label" href="#url_for_home?$query&clicked=$label&first=$first">
+		        $label ($hierarchy.get('numDocs'))
+		 	  </a>
+		    #end
+		</li>
+
+#end   ## end for each Hierarchy
+
+#foreach ($doc in $response.response.documents)
+		<li>
+		<a href="#url_for_home?q=id:$doc.replace(" ", "")&clicked=$doc.replace(" ", "")">$doc</a>
+		</li>
+#end
+
+</ol>

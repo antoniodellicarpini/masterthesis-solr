@@ -28,20 +28,29 @@ import org.apache.solr.common.util.SimpleOrderedMap;
 import org.apache.solr.core.SolrCore;
 import org.apache.solr.handler.component.ResponseBuilder;
 import org.apache.solr.handler.component.SearchComponent;
-import org.apache.solr.response.SolrQueryResponse;
-import org.apache.solr.update.SolrCmdDistributor.Response;
 import org.apache.solr.util.plugin.SolrCoreAware;
 
 
 public class HierarchyComponent extends SearchComponent implements SolrCoreAware {
 	//hashmap dei livelli gerarchici <Gerarchia,Count>
 	//private  HashMap<String,ArrayList<String>> h = new HashMap<String, ArrayList<String>>();
+	@SuppressWarnings("unused")
 	private int numHit;
 	private int numDocHit;
+	private String addressCorpus;
+	private String addressThesaurus;
 	public void inform(SolrCore arg0) {
 		// TODO Auto-generated method stub
-		
 	}
+	@SuppressWarnings("rawtypes")
+	@Override
+	public void init(NamedList args) 
+	{
+		super.init(args);
+		addressCorpus=(String) args.get("addressCorpus");
+		addressThesaurus=(String) args.get("addressThesaurus");
+	}
+	
 	@Override
 	public String getDescription() {
 		// TODO Auto-generated method stub
@@ -58,45 +67,44 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 		// TODO Auto-generated method stub
 		
 	}
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void process(ResponseBuilder rb) throws IOException {
-		
 		HashMap<String,ArrayList<String>> h = new HashMap<String, ArrayList<String>>();
 		ArrayList<?> cluster;
 		
-		 if(rb.req.getParams().get("clicked")!=null){
+		
+		
+		String first=rb.req.getParams().get("first");
+		 SolrServer server = new HttpSolrServer(addressCorpus);
+		 SolrQuery query = new SolrQuery();
+		 query.set("qt", "/clustering");
+		  
+		 if(rb.req.getParams().get("clicked")!=null){	 	 
 			 
-			 String first=rb.req.getParams().get("first");
-			 SolrServer server = new HttpSolrServer("http://localhost:8983/solr/corpus");
-			 
-			 SolrQuery query = new SolrQuery();
 			 query.set("q", first);
-			 query.set("qt", "/clustering");
-			    /*
-			     * Effettuiamo la query sul server e recuperiamo tutti i documenti ottenuti in output.
-				*/
-			    QueryResponse response = null;
-				try {
-					response = server.query(query);
-				} catch (SolrServerException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			    
-				cluster= (ArrayList) response.getResponse().get("clusters");	 
-		 }
+			   }
 		 
 		 else{
 		/*
 		 * Dalla risposta di Solr recuperiamo i cluster generati. 
 		 */
-		   cluster = (ArrayList) rb.rsp.getValues().get("clusters");
-		// inizzializzo l'arrayList di cluster
-		   
-		 //  System.out.println("i cluster sono:"+((ArrayList)rb.rsp.getValues().get("clusters")).size()); 
-	    // ciclo sui cluster
+			 query.set("q",rb.req.getParams().get("q"));
+			    /*
+			     * Effettuiamo la query sul server e recuperiamo tutti i documenti ottenuti in output.
+				*/
+		// ciclo sui cluster
 		 }
+		 
+		    QueryResponse response = null;
+						try {
+							response = server.query(query);
+						} catch (SolrServerException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						cluster= (ArrayList) response.getResponse().get("clusters");
+				   
 	    
 		String queryThes="";
 		ArrayList<Cluster> clusters = new ArrayList<Cluster>();
@@ -140,20 +148,17 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	     * i risultati siano ordinati per "descrittore".
 		*/
 		
-		SolrServer server = new HttpSolrServer("http://localhost:8983/solr/thesaurus");
-	    SolrQuery query = new SolrQuery();
+		 server = new HttpSolrServer(addressThesaurus);
+	     query = new SolrQuery();
 	    
 	    query.setQuery(queryThes);
-	    query.setFacet(true);
-	    query.setFacetMinCount(1);
-	    query.addFacetField("hierarchy");
 	    query.addSort("descrittore",ORDER.asc);
-	    query.setFacetSort("index");
+
 	    /*
 	     * Effettuiamo la query sul server e recuperiamo tutti i documenti ottenuti in output.
 		*/
 	    
-	    QueryResponse response = null;
+	    response = null;
 		try {
 			response = server.query(query);
 		} catch (SolrServerException e) {
@@ -161,10 +166,8 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 			e.printStackTrace();
 		}
 	    SolrDocumentList results = response.getResults();
-	    
 	    // inizializziamo l'arrayList di descrittori
 	    ArrayList<Desc> descrittori=new ArrayList<Desc>();
-	    
 	    // ciclo sui documenti
 	    for(int i=0;i<results.size();i++)
 	    {
@@ -183,31 +186,34 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	     * dei cluster e la lista dei descrittori generando in output un'unica lista
 	     * contenente tutti i termini ognuno dei quali avrà associato i propri documenti.
 		*/
-	   
 	    ArrayList<Desc> out = merge (clusters,descrittori,h);
-	    
 	    //qui ci facciamo ritornare la gerarchia cliccata
+	  
+		
 	    if(rb.req.getParams().get("clicked")!=null){
 	    	
 	    	HashMap<String,ArrayList<String>> elements = new HashMap<String, ArrayList<String>>();
 	        ArrayList<String> docs = new ArrayList<String>();
 	         int i=0;
 	         // cicliamo sui descrittori
-	         while(i < out.size()){
-	          boolean trovato=false;
+	         boolean trovato=false;
+	         while(i < out.size() && !trovato){
 	          int j=0;
-	          // cicliamo sulle gerarchie di un descrittore
+	             // cicliamo sulle gerarchie di un descrittore
 	          while(j < out.get(i).getGerarchia().size() && !trovato){
-	           String[] parole =  out.get(i).getGerarchia().get(j).split("/"); 
-	           int k=0;
-	           while(k < parole.length && !trovato){
-	            if(parole[k].equals(rb.req.getParams().get("clicked"))){
-	             trovato=true;
-	            
-	            } 
-	           k++;
-	           }
-	           
+	        	 
+	        	  String[] parole=out.get(i).getGerarchia().get(j).split("/"); 
+		           int k=0;
+	        	  if(out.get(i).getGerarchia().get(j).contains(rb.req.getParams().get("clicked")))
+	        	  {	  
+			        while(k < parole.length && !trovato){
+			            if(parole[k].equals(rb.req.getParams().get("clicked"))){
+			             trovato=true;  
+			             
+			            } 
+			           k++;
+			           }
+	        	  }
 	           if(trovato){
 	            if(k==parole.length){
 	            
@@ -215,9 +221,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	             docs = out.get(i).getDocs(); 
 	            }
 	            else{
-	            
 	             //prendiamo l'elemento figlio dell'elemento in posizione "k"
-	             
 	             if (!elements.containsKey(parole[k]))
 	             {
 	            	 ArrayList<String> a=new ArrayList<String>();
@@ -227,9 +231,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	            		 a.add(out.get(i).getDocs().get(z).replaceAll("\\s+",""));
 	            		
 						}
-	               
 	            	 elements.put(parole[k], a);
-	              
 	             }
 	             //altrimenti aggiorno il count
 	             else
@@ -237,8 +239,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	            	 
 	            	 for(int z =0;z<out.get(i).getDocs().size();z++)
 						{
-							
-	            		 	
+
 							elements.get(parole[k]).add(out.get(i).getDocs().get(z).replaceAll("\\s+",""));
 							
 						}
@@ -258,7 +259,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	         int contatore=0;
 	         int index=0;
 	         while (it.hasNext()) {
-	          NamedList embeddedResponse = new SimpleOrderedMap();
+	             NamedList embeddedResponse = new SimpleOrderedMap();
 	             HashMap.Entry resp = (HashMap.Entry)it.next();
 	             String[] myStringArray = new String[1];
 	 	         myStringArray[0] = (String) resp.getKey();
@@ -270,27 +271,23 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	             array[index] = embeddedResponse;
 	             index++;   
 	         }
+	         
 	         contatore=contatore+docs.size();
 	         if(contatore==0) // caso in cui abbiamo cliccato un documento
 	        	 rb.rsp.add("clicked", rb.req.getParams().get("clicked"));
 	         else
-	        	 rb.rsp.add("clicked", rb.req.getParams().get("clicked")+" ("+contatore+")");
-	         rb.rsp.add("clusterGerarchizzati",array);
-	         rb.rsp.add("documents", docs);
-	         rb.rsp.add("first", rb.req.getParams().get("first"));
-	    
+	        	rb.rsp.add("clicked", rb.req.getParams().get("clicked")+" ("+contatore+")");
+	         	rb.rsp.add("clusterGerarchizzati",array);
+	         	rb.rsp.add("documents", docs);
+	         	rb.rsp.add("first", rb.req.getParams().get("first"));
 	    	//***********************************************
 	    }
+	    
 	    else{
-	    
-	    
-	    Iterator it = h.entrySet().iterator();
-	    
-	    NamedList[] array = new NamedList[h.size()];
-	    
-	    int i=0;
-	    while (it.hasNext()) {
-	    	
+		    Iterator it = h.entrySet().iterator();
+		    NamedList[] array = new NamedList[h.size()];
+		    int i=0;
+		    while (it.hasNext()) {
 	    	NamedList embeddedResponse = new SimpleOrderedMap();
 	        HashMap.Entry resp = (HashMap.Entry)it.next();
 	        String[] myStringArray = new String[1];
@@ -303,6 +300,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	        i++;
 	        
 	    }
+		    
 	    
 	    
 	    rb.rsp.add("clusterGerarchizzati",array);
@@ -312,7 +310,8 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	    	rb.rsp.add("first", rb.req.getParams().get("q"));
 	    else
 	    	rb.rsp.add("first", "*:*");
-	    
+
+// per il test	    
 	    rb.rsp.add("numHit", numHit);
 	    rb.rsp.add("numDocHit", numDocHit);
 	    }
@@ -343,7 +342,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 		StringBuilder sb = new StringBuilder();
 	    CharTermAttribute charTermAttribute = tokenStream.addAttribute(CharTermAttribute.class);
 	    tokenStream.reset();
-	    
+
 	    while (tokenStream.incrementToken()) 
 	    {
 	        String term = charTermAttribute.toString();
@@ -391,12 +390,10 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 			   * se il confronto va a buon fine, cioè se la label del descrittore 
 			   * è uguale a quello del cluster.
 			   */
-			  
 			  if(clusters.get(indexC).getStemLabel().equals(descrittori.get(indexD).getName()) )
 			  {   
 				  numHit++;
-				  numDocHit=numDocHit+clusters.get(indexC).getDocs().size();
-				  
+				  numDocHit=numDocHit+clusters.get(indexC).getDocs().size(); 
 				  // prendo i documenti associati al cluster e li setto al descrittore.
 				  descrittori.get(indexD).setDocs(clusters.get(indexC).getDocs());
 				  // recupero inoltre la label non stemmata del cluster
@@ -464,6 +461,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	
 	
 	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private  void buildFacetLevel(Desc descrittore, HashMap<String,ArrayList<String>> h)
 	{
 		int size = descrittore.getGerarchia().size();
@@ -473,8 +471,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 		
 		for(int k=0; k < size; k++)
 		{
-			
-			  	String[] first =  descrittore.getGerarchia().get(k).split("/");
+			String[] first =  descrittore.getGerarchia().get(k).split("/");
 			  	
 			  	if(oldAux.add(first[0]))
 			  	{
