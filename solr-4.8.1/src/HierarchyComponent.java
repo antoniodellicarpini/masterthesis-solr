@@ -39,6 +39,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	private int numDocHit;
 	private String addressCorpus;
 	private String addressThesaurus;
+	private String addressSolr;
 	public void inform(SolrCore arg0) {
 		// TODO Auto-generated method stub
 	}
@@ -48,7 +49,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	{
 		super.init(args);
 		addressCorpus=(String) args.get("addressCorpus");
-		addressThesaurus=(String) args.get("addressThesaurus");
+		addressSolr=(String) args.get("addressSolr");
 	}
 	
 	@Override
@@ -72,8 +73,8 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	public void process(ResponseBuilder rb) throws IOException {
 		HashMap<String,ArrayList<String>> h = new HashMap<String, ArrayList<String>>();
 		ArrayList<?> cluster;
-		
-		
+		addressThesaurus=null;
+		addressThesaurus=addressSolr+rb.req.getParams().get("thes");
 		
 		String first=rb.req.getParams().get("first");
 		 SolrServer server = new HttpSolrServer(addressCorpus);
@@ -251,6 +252,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	          j++;
 	          }
 	         i++;
+	         trovato=false;
 	         }
 	         
 	        // aggiunta alla response
@@ -280,6 +282,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	         	rb.rsp.add("clusterGerarchizzati",array);
 	         	rb.rsp.add("documents", docs);
 	         	rb.rsp.add("first", rb.req.getParams().get("first"));
+	         	rb.rsp.add("thes", rb.req.getParams().get("thes"));
 	    	//***********************************************
 	    }
 	    
@@ -311,7 +314,8 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 	    else
 	    	rb.rsp.add("first", "*:*");
 
-// per il test	    
+// per il test	 
+	    rb.rsp.add("thes", rb.req.getParams().get("thes"));
 	    rb.rsp.add("numHit", numHit);
 	    rb.rsp.add("numDocHit", numDocHit);
 	    }
@@ -380,7 +384,6 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 		  numHit=0;
 		  numDocHit=0;
 		  ArrayList<Desc> output = new ArrayList<Desc>();
-		  
 		  int indexC = 0;
 		  int indexD = 0;
 		  // finchè non scandisco tutti i descrittori eseguo:
@@ -426,13 +429,12 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 			   * nel thesaurus e quindi posso aggiungerlo direttamente all'output
 			   */
 			  else
-			  {
-				  
+			  {	  
 				  // creo un nuovo oggetto descrittore e gli setto i documenti, la label e la gerarchia.
 				  Desc descrittore = new Desc();
 				  descrittore.setDocs(clusters.get(indexC).getDocs());
 				  descrittore.setName(clusters.get(indexC).getLabel());
-				  descrittore.setGerarchia(new ArrayList<String>(Arrays.asList(clusters.get(indexC).getLabel())));
+				  descrittore.setGerarchia(new ArrayList<String>(Arrays.asList("Non Match/"+clusters.get(indexC).getLabel())));
 				  // aggiungo l'oggetto all'output
 				  output.add(descrittore);
 				  // richiamo la funzione per la costruzione del primo livello	 
@@ -449,7 +451,7 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 			  Desc descrittore = new Desc();
 			  descrittore.setDocs(clusters.get(indexC).getDocs());
 			  descrittore.setName(clusters.get(indexC).getLabel());
-			  descrittore.setGerarchia(new ArrayList<String>(Arrays.asList(clusters.get(indexC).getLabel())));
+			  descrittore.setGerarchia(new ArrayList<String>(Arrays.asList("Non Match/"+clusters.get(indexC).getLabel())));
 			  output.add(descrittore);
 			  buildFacetLevel(descrittore,h);
 			  indexC++;
@@ -457,9 +459,6 @@ public class HierarchyComponent extends SearchComponent implements SolrCoreAware
 		  
 		  return output;
 	}
-	
-	
-	
 	
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private  void buildFacetLevel(Desc descrittore, HashMap<String,ArrayList<String>> h)
