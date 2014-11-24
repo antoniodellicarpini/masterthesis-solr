@@ -174,10 +174,17 @@ $math.add($inval,$gapval)##
 #end
 #end
 
+
 #macro(myq)&q=$!{esc.url($params.get('first'))}#end
+
 #macro(myclicked)&clicked=$!{esc.url($params.get('clicked'))}#end
 #macro(clicked)#if($request.params.getParams('clicked'))#myclicked#end#end
+
 #macro(first)?#if($request.params.getParams('first'))#myq#else#q#end#end
 #macro(f)&first=$!{esc.url($params.get('first'))}#end
-#macro(mylens)#first#clicked#f#end
+
+#macro(thes)&thes=$!{esc.url($params.get('thes'))}#end
+
+
+#macro(mylens)#first#clicked#f#thes#end
 
