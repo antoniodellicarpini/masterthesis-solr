@@ -1,4 +1,5 @@
 #set($first=$response.response.first)
+#set($thes=$response.response.thes)
 ## For each hierarchy
 
 #if($response.response.clicked!="")
@@ -18,7 +19,7 @@
 		 	   	 #set($query=$query+" OR id:$doc")
 		 	   	 #end
 		 	  #end
-		 	  <a id="label" href="#url_for_home?$query&clicked=$label&first=$first">
+		 	  <a id="label" href="#url_for_home?$query&clicked=$label&first=$first&thes=$thes">
 		        $label ($hierarchy.get('numDocs'))
 		 	  </a>
 		    #end
